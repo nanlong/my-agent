@@ -26,7 +26,6 @@ async fn main() -> anyhow::Result<()> {
 
     while let Some(Ok(response)) = stream.next().await {
         let content = response.content.as_ref();
-        println!("Content: {}", content.unwrap());
 
         let response: Value = serde_json::from_str(content.unwrap())?;
         println!(

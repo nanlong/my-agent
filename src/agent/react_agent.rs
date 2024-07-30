@@ -1,4 +1,4 @@
-use super::ReActAgentConfig;
+use super::{response::Response, ReActAgentConfig};
 use anyhow::Result;
 use async_openai::{
     config::OpenAIConfig,
@@ -48,6 +48,9 @@ impl ReActAgent {
 
                 for choice in response.choices {
                     if let Some(assistant_prompt) = choice.message.content {
+                        let response: Response = serde_json::from_str(&assistant_prompt)?;
+                        println!("Assistant content: {:?}", response);
+
                         let assistant_message = ChatCompletionRequestAssistantMessageArgs::default()
                             .content(assistant_prompt)
                             .build()?;
