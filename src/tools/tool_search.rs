@@ -15,6 +15,7 @@ impl Search {
     pub fn new(input: String) -> Self {
         let api_key = std::env::var("TAVILY_API_KEY").expect("Missing TAVILY_API_KEY");
         let client = Tavily::new(api_key);
+
         Self {
             client: Some(client),
             input,
@@ -32,6 +33,7 @@ impl ToolExecute for Search {
             .ok_or_else(|| anyhow!("Client not initialized"))?;
 
         let response = client.search(params).await?;
+
         Ok(format!("{}", response))
     }
 }

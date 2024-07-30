@@ -4,10 +4,10 @@ use anyhow::Result;
 use async_openai::{
     config::OpenAIConfig,
     types::{
-        ChatCompletionRequestAssistantMessage, ChatCompletionRequestAssistantMessageArgs,
-        ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
-        ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessageArgs,
-        CreateChatCompletionRequest, CreateChatCompletionRequestArgs, CreateChatCompletionResponse,
+        ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestMessage,
+        ChatCompletionRequestSystemMessage, ChatCompletionRequestSystemMessageArgs,
+        ChatCompletionRequestUserMessageArgs, CreateChatCompletionRequest,
+        CreateChatCompletionRequestArgs, CreateChatCompletionResponse,
     },
     Client,
 };
@@ -17,8 +17,7 @@ use std::pin::Pin;
 
 const RESPONSE_FORMAT: &str = include_str!("../template/react_response_format.txt");
 
-type MessageStream =
-    Pin<Box<dyn Stream<Item = Result<ChatCompletionRequestAssistantMessage>> + Send>>;
+type MessageStream = Pin<Box<dyn Stream<Item = Result<ChatCompletionRequestMessage>> + Send>>;
 
 #[derive(Clone)]
 pub struct ReActAgent {
@@ -38,13 +37,18 @@ impl ReActAgent {
     }
 
     pub async fn invoke(self, question: &str) -> Result<MessageStream> {
-        let system_message = self.build_system_message(question)?;
+        let question = question.to_string();
+        let system_message = self.build_system_message(&question)?;
         let mut history: Vec<ChatCompletionRequestMessage> = Vec::new();
 
-        println!("Question: {}", question);
-
         let stream = stream! {
-            for _step in 1..=self.config.max_steps {
+            let user_message = ChatCompletionRequestUserMessageArgs::default()
+                .content(question)
+                .build()?;
+
+            yield Ok(user_message.into());
+
+            'outer: for _step in 1..=self.config.max_steps {
                 let response = self.planning(system_message.clone(), history.clone()).await?;
 
                 for choice in response.choices {
@@ -54,20 +58,24 @@ impl ReActAgent {
                         let assistant_message = ChatCompletionRequestAssistantMessageArgs::default()
                             .content(assistant_prompt)
                             .build()?;
+
                         history.push(assistant_message.clone().into());
+                        yield Ok(assistant_message.into());
+
+                        if response.command.name == "finish" {
+                            break 'outer;
+                        }
 
                         let tool: Tools = response.command.try_into()?;
-                        println!("Tool: {:?}", tool);
                         let command_result = tool.execute().await?;
-                        println!("Command result: {}", command_result);
-                        let user_prompt = format!("Command result: {} \n{}", command_result, RESPONSE_FORMAT);
+                        let user_prompt = format!("Command result: {}\n{}", command_result, RESPONSE_FORMAT);
 
                         let user_message = ChatCompletionRequestUserMessageArgs::default()
                             .content(user_prompt)
                             .build()?;
-                        history.push(user_message.into());
 
-                        yield Ok(assistant_message)
+                        history.push(user_message.clone().into());
+                        yield Ok(user_message.into());
                     }
                 }
             }

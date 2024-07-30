@@ -1,4 +1,4 @@
-use super::{tool_do_nothing::DoNothing, tool_search::Search, ToolExecute};
+use super::{tool_do_nothing::DoNothing, tool_finish::Finish, tool_search::Search, ToolExecute};
 use crate::agent::response::Command;
 use anyhow::{anyhow, Result};
 use enum_dispatch::enum_dispatch;
@@ -13,6 +13,7 @@ use strum::{EnumIter, IntoEnumIterator};
 pub enum Tools {
     Search(Search),
     DoNothing(DoNothing),
+    Finish(Finish),
 }
 
 impl Display for Tools {
@@ -20,6 +21,7 @@ impl Display for Tools {
         match self {
             Tools::Search(tool) => write!(f, "{}", tool),
             Tools::DoNothing(tool) => write!(f, "{}", tool),
+            Tools::Finish(tool) => write!(f, "{}", tool),
         }
     }
 }
@@ -29,6 +31,7 @@ impl Debug for Tools {
         match self {
             Tools::Search(tool) => write!(f, "{:?}", tool),
             Tools::DoNothing(tool) => write!(f, "{:?}", tool),
+            Tools::Finish(tool) => write!(f, "{:?}", tool),
         }
     }
 }
@@ -43,6 +46,7 @@ impl Tools {
             match tool {
                 Tools::Search(tool) => writeln!(output, "{}. {}", index, tool)?,
                 Tools::DoNothing(tool) => writeln!(output, "{}. {}", index, tool)?,
+                Tools::Finish(tool) => writeln!(output, "{}. {}", index, tool)?,
             }
         }
 
@@ -60,6 +64,8 @@ impl TryFrom<Command> for Tools {
                     .args
                     .get("input")
                     .ok_or_else(|| anyhow!("Missing input"))?
+                    .as_str()
+                    .ok_or_else(|| anyhow!("Input arg convert str failed"))?
                     .to_string();
 
                 Ok(Tools::Search(Search::new(input)))
@@ -84,6 +90,7 @@ mod tests {
             match tool {
                 Tools::Search(tool) => writeln!(output, "{}. {}", index, tool)?,
                 Tools::DoNothing(tool) => writeln!(output, "{}. {}", index, tool)?,
+                Tools::Finish(tool) => writeln!(output, "{}. {}", index, tool)?,
             }
         }
 

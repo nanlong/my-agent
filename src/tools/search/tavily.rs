@@ -4,6 +4,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
 
+#[derive(Debug)]
 pub struct Tavily {
     api_key: String,
     base_url: String,
@@ -22,6 +23,7 @@ impl Tavily {
     pub async fn search(&self, params: SearchParameters) -> Result<SearchResponse> {
         let params = SearchParameters {
             api_key: self.api_key.clone(),
+            max_results: Some(1),
             ..params
         };
 
@@ -80,10 +82,12 @@ pub struct SearchResponse {
 
 impl Display for SearchResponse {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Query: {}", self.query)?;
-
-        for item in &self.results {
-            writeln!(f, "- {}", item)?;
+        if self.results.is_empty() {
+            write!(f, "No result found, please try other input again.")?;
+        } else {
+            for item in &self.results {
+                writeln!(f, "{}", item)?;
+            }
         }
 
         Ok(())
@@ -101,11 +105,7 @@ pub struct SearchItem {
 
 impl Display for SearchItem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Title: {}; Url: {}; Content: {}; Score: {};",
-            self.title, self.url, self.content, self.score
-        )
+        write!(f, "{}", self.content)
     }
 }
 

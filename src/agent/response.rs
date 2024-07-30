@@ -2,24 +2,24 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct Response {
-    pub(crate) thoughts: Thoughts,
-    pub(crate) command: Command,
+pub struct Response {
+    pub thoughts: Thoughts,
+    pub command: Command,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct Thoughts {
-    pub(crate) text: String,
-    pub(crate) reasoning: String,
-    pub(crate) plan: String,
-    pub(crate) criticism: String,
-    pub(crate) speak: String,
+pub struct Thoughts {
+    pub text: String,
+    pub reasoning: String,
+    pub plan: String,
+    pub criticism: String,
+    pub speak: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct Command {
-    pub(crate) name: String,
-    pub(crate) args: Value,
+pub struct Command {
+    pub name: String,
+    pub args: Value,
 }
 
 #[cfg(test)]

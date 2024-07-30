@@ -7,9 +7,7 @@ async fn main() -> anyhow::Result<()> {
     let api_key = env::var("TAVILY_API_KEY")?;
     let tavily = Tavily::new(api_key);
 
-    let params = SearchParameters::builder()
-        .query("周杰伦 出生年份")
-        .build()?;
+    let params = SearchParameters::builder().query("周杰伦 年龄").build()?;
 
     let response = tavily.search(params).await?;
 

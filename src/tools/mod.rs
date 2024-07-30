@@ -1,6 +1,7 @@
 pub mod search;
 mod tool_do_nothing;
 mod tool_execute;
+mod tool_finish;
 mod tool_search;
 mod tools;
 
