@@ -1,13 +1,12 @@
-use super::react_agent_config::ReActAgentConfig;
+use super::ReActAgentConfig;
 use anyhow::Result;
 use async_openai::{
     config::OpenAIConfig,
-    error::OpenAIError,
     types::{
         ChatCompletionRequestAssistantMessage, ChatCompletionRequestAssistantMessageArgs,
         ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
         ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessageArgs,
-        CreateChatCompletionRequestArgs,
+        CreateChatCompletionRequest, CreateChatCompletionRequestArgs, CreateChatCompletionResponse,
     },
     Client,
 };
@@ -20,7 +19,7 @@ const RESPONSE_FORMAT: &str = include_str!("../template/react_response_format.tx
 type MessageStream =
     Pin<Box<dyn Stream<Item = Result<ChatCompletionRequestAssistantMessage>> + Send>>;
 
-#[allow(unused)]
+#[derive(Clone)]
 pub struct ReActAgent {
     client: Client<OpenAIConfig>,
     config: ReActAgentConfig,
@@ -29,8 +28,8 @@ pub struct ReActAgent {
 impl ReActAgent {
     pub fn new(config: ReActAgentConfig) -> Self {
         let openai_config = OpenAIConfig::new()
-            .with_api_key(config.api_key.clone())
-            .with_api_base(config.base_url.clone());
+            .with_api_key(config.api_key.as_str())
+            .with_api_base(config.base_url.as_str());
 
         let client = Client::with_config(openai_config);
 
@@ -38,64 +37,88 @@ impl ReActAgent {
     }
 
     pub async fn invoke(self, question: &str) -> Result<MessageStream> {
-        let language = self.config.language.to_string();
-
-        let system_message =
-            build_system_message(question, &language).expect("Failed to build system message");
+        let system_message = self.build_system_message(question)?;
         let mut history: Vec<ChatCompletionRequestMessage> = Vec::new();
-        let max_steps = self.config.max_steps;
 
         println!("Question: {}", question);
 
         let stream = stream! {
-            for _step in 1..=max_steps {
-                let messages = [
-                    vec![system_message.clone().into()],
-                    history.clone(),
-                ].into_iter().flatten().collect::<Vec<_>>();
+            for _step in 1..=self.config.max_steps {
+                let response = self.planning(system_message.clone(), history.clone()).await?;
 
-                let request = CreateChatCompletionRequestArgs::default()
-                    .model(&self.config.model)
-                    .messages(messages)
-                    .temperature(0.3_f32)
-                    .build()?;
+                for choice in response.choices {
+                    if let Some(assistant_prompt) = choice.message.content {
+                        let assistant_message = ChatCompletionRequestAssistantMessageArgs::default()
+                            .content(assistant_prompt)
+                            .build()?;
+                        history.push(assistant_message.clone().into());
 
-                let ret = self.client.chat().create(request).await?;
-                let response = ret.choices[0].message.content.clone().unwrap_or_default();
-                let assistant_message = ChatCompletionRequestAssistantMessageArgs::default()
-                        .content(response)
-                        .build()?;
+                        let user_prompt = format!("Command result: {} \n{}", "success", RESPONSE_FORMAT);
+                        println!("User content: {}", user_prompt);
 
-                let user_message = ChatCompletionRequestUserMessageArgs::default()
-                    .content(format!("Command result: {} \n {}", "success", RESPONSE_FORMAT))
-                    .build()?;
+                        let user_message = ChatCompletionRequestUserMessageArgs::default()
+                            .content(user_prompt)
+                            .build()?;
+                        history.push(user_message.into());
 
-                history.push(assistant_message.clone().into());
-                history.push(user_message.clone().into());
-
-
-                yield Ok(assistant_message)
+                        yield Ok(assistant_message)
+                    }
+                }
             }
         };
 
         Ok(Box::pin(stream))
     }
-}
 
-fn build_system_message(
-    question: &str,
-    language: &str,
-) -> Result<ChatCompletionRequestSystemMessage, OpenAIError> {
-    let system_prompt = format!(
-        include_str!("../template/react_system_prompt.txt"),
-        language = language,
-        question = question,
-        response_format = RESPONSE_FORMAT,
-    );
+    async fn planning(
+        &self,
+        system_message: ChatCompletionRequestSystemMessage,
+        history: Vec<ChatCompletionRequestMessage>,
+    ) -> Result<CreateChatCompletionResponse> {
+        let messages = Self::build_chat_messages(system_message.clone(), history.clone());
+        let request = self.create_request(messages)?;
+        let response = self.client.chat().create(request).await?;
+        Ok(response)
+    }
 
-    ChatCompletionRequestSystemMessageArgs::default()
-        .content(system_prompt)
-        .build()
+    fn build_system_message(&self, question: &str) -> Result<ChatCompletionRequestSystemMessage> {
+        let language = self.config.language.to_string();
+
+        let system_prompt = format!(
+            include_str!("../template/react_system_prompt.txt"),
+            language = language,
+            question = question,
+            response_format = RESPONSE_FORMAT,
+        );
+
+        let system_message = ChatCompletionRequestSystemMessageArgs::default()
+            .content(system_prompt)
+            .build()?;
+
+        Ok(system_message)
+    }
+
+    fn create_request(
+        &self,
+        messages: Vec<ChatCompletionRequestMessage>,
+    ) -> Result<CreateChatCompletionRequest> {
+        let request = CreateChatCompletionRequestArgs::default()
+            .model(self.config.model.as_str())
+            .temperature(self.config.temperature)
+            .messages(messages)
+            .build()?;
+
+        Ok(request)
+    }
+
+    fn build_chat_messages(
+        system_message: ChatCompletionRequestSystemMessage,
+        history: Vec<ChatCompletionRequestMessage>,
+    ) -> Vec<ChatCompletionRequestMessage> {
+        let mut messages = vec![system_message.into()];
+        messages.extend(history.iter().cloned());
+        messages
+    }
 }
 
 #[cfg(test)]

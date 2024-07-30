@@ -1,9 +1,5 @@
+use super::Language;
 use derive_builder::Builder;
-use std::{
-    convert::TryFrom,
-    fmt::{self, Display},
-    str::FromStr,
-};
 use url::Url;
 
 #[derive(Builder, Debug, Clone, PartialEq)]
@@ -16,47 +12,13 @@ pub struct ReActAgentConfig {
     pub(crate) language: Language,
     #[builder(default = "10")]
     pub(crate) max_steps: usize,
+    #[builder(default = "0.3")]
+    pub(crate) temperature: f32,
 }
 
 impl ReActAgentConfig {
     pub fn builder() -> ReActAgentConfigBuilder {
         ReActAgentConfigBuilder::default()
-    }
-}
-
-#[derive(Default, Debug, Clone, PartialEq)]
-pub(crate) enum Language {
-    #[default]
-    Chinese,
-    English,
-}
-
-impl FromStr for Language {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "chinese" => Ok(Language::Chinese),
-            "english" => Ok(Language::English),
-            _ => Err(anyhow::anyhow!("Invalid language")),
-        }
-    }
-}
-
-impl<'a> TryFrom<&'a str> for Language {
-    type Error = anyhow::Error;
-
-    fn try_from(s: &'a str) -> Result<Self, Self::Error> {
-        s.parse()
-    }
-}
-
-impl Display for Language {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Language::Chinese => write!(f, "chinese"),
-            Language::English => write!(f, "english"),
-        }
     }
 }
 
