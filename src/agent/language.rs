@@ -44,15 +44,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_language_from_str() {
-        assert_eq!("chinese".parse::<Language>().unwrap(), Language::Chinese);
+    fn test_language_from_str() -> anyhow::Result<()> {
+        assert_eq!("chinese".parse::<Language>()?, Language::Chinese);
         assert!("invalid".parse::<Language>().is_err());
+
+        Ok(())
     }
 
     #[test]
-    fn test_language_try_from() {
-        assert_eq!(Language::try_from("chinese").unwrap(), Language::Chinese);
+    fn test_language_try_from() -> anyhow::Result<()> {
+        assert_eq!(Language::try_from("chinese")?, Language::Chinese);
         assert!(Language::try_from("invalid").is_err());
+        Ok(())
     }
 
     #[test]

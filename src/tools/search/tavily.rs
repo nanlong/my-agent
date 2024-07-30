@@ -127,8 +127,7 @@ mod tests {
             .include_domains(vec!["baidu.com".to_string()])
             .exclude_domains(vec!["google.com".to_string()])
             .use_cache(true)
-            .build()
-            .unwrap();
+            .build()?;
 
         assert_eq!(
             parameters.query,
