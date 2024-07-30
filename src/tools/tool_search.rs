@@ -22,21 +22,6 @@ impl Search {
     }
 }
 
-impl Display for Search {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let description = r#"Search : "search", args: "input": "<search content>""#;
-        write!(f, "{}", description)
-    }
-}
-
-impl Debug for Search {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Search")
-            .field("input", &self.input)
-            .finish()
-    }
-}
-
 impl ToolExecute for Search {
     async fn execute(&self) -> Result<String> {
         let params = SearchParameters::builder().query(&self.input).build()?;
@@ -48,5 +33,20 @@ impl ToolExecute for Search {
 
         let response = client.search(params).await?;
         Ok(format!("{}", response))
+    }
+}
+
+impl Debug for Search {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Search")
+            .field("input", &self.input)
+            .finish()
+    }
+}
+
+impl Display for Search {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let description = r#"Search : "search", args: "input": "<search content>""#;
+        write!(f, "{}", description)
     }
 }

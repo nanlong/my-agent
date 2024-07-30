@@ -1,4 +1,4 @@
-use super::{tool_do_nothing::DoNothing, tool_search::Search};
+use super::{tool_do_nothing::DoNothing, tool_search::Search, ToolExecute};
 use crate::agent::response::Command;
 use anyhow::{anyhow, Result};
 use enum_dispatch::enum_dispatch;
@@ -7,11 +7,6 @@ use std::{
     fmt::{self, Debug, Display, Write},
 };
 use strum::{EnumIter, IntoEnumIterator};
-
-#[enum_dispatch]
-pub trait ToolExecute {
-    async fn execute(&self) -> Result<String>;
-}
 
 #[derive(EnumIter)]
 #[enum_dispatch(ToolExecute)]
