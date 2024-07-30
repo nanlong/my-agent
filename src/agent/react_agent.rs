@@ -1,4 +1,5 @@
 use super::{response::Response, ReActAgentConfig};
+use crate::tools::{ToolExecute, Tools};
 use anyhow::Result;
 use async_openai::{
     config::OpenAIConfig,
@@ -49,15 +50,17 @@ impl ReActAgent {
                 for choice in response.choices {
                     if let Some(assistant_prompt) = choice.message.content {
                         let response: Response = serde_json::from_str(&assistant_prompt)?;
-                        println!("Assistant content: {:?}", response);
 
                         let assistant_message = ChatCompletionRequestAssistantMessageArgs::default()
                             .content(assistant_prompt)
                             .build()?;
                         history.push(assistant_message.clone().into());
 
-                        let user_prompt = format!("Command result: {} \n{}", "success", RESPONSE_FORMAT);
-                        println!("User content: {}", user_prompt);
+                        let tool: Tools = response.command.try_into()?;
+                        println!("Tool: {:?}", tool);
+                        let command_result = tool.execute().await?;
+                        println!("Command result: {}", command_result);
+                        let user_prompt = format!("Command result: {} \n{}", command_result, RESPONSE_FORMAT);
 
                         let user_message = ChatCompletionRequestUserMessageArgs::default()
                             .content(user_prompt)
@@ -91,6 +94,7 @@ impl ReActAgent {
             include_str!("../template/react_system_prompt.txt"),
             language = language,
             question = question,
+            commands = Tools::description()?,
             response_format = RESPONSE_FORMAT,
         );
 

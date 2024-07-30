@@ -8,12 +8,14 @@ async fn main() -> anyhow::Result<()> {
     let tavily = Tavily::new(api_key);
 
     let params = SearchParameters::builder()
-        .query("周杰伦今年多大了？他的年龄的0.23次方是多少？")
+        .query("周杰伦 出生年份")
         .build()?;
 
     let response = tavily.search(params).await?;
 
     println!("Response: {:?}", response.results.len());
+
+    println!("Response: {}", response);
 
     Ok(())
 }
