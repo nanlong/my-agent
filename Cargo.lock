@@ -576,6 +576,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-openai",
+ "derive_builder",
+ "url",
 ]
 
 [[package]]

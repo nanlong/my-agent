@@ -1,0 +1,15 @@
+You should only respond once in JSON format as described below
+Response Format:
+
+{
+    "thoughts": {
+        "text": "thought",
+        "reasoning": "reasoning",
+        "plan": "- short bulleted\n- list that conveys\n- long-term plan",
+        "criticism": "constructive self-criticism",
+        "speak": "thoughts summary to say to user",
+    },
+    "command": {"name": "command name", "args": {"arg name": "value"}},
+}
+
+Ensure that the response content conforms to the JSON Schema specification.

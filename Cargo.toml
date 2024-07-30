@@ -9,3 +9,5 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.86"
 async-openai = "0.23.4"
+derive_builder = "0.20.0"
+url = "2.5.2"
