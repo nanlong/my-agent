@@ -8,8 +8,10 @@ pub struct ReActAgentConfig {
     pub(crate) api_key: String,
     pub(crate) base_url: Url,
     pub(crate) model: String,
+    // 返回的语言，默认中文
     #[builder(default = "Language::Chinese")]
     pub(crate) language: Language,
+    // 最大调用轮数，在此之前未解决问题将会停止
     #[builder(default = "10")]
     pub(crate) max_steps: usize,
     #[builder(default = "0.3")]
