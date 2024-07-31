@@ -1,3 +1,6 @@
+You should only respond once in JSON format as described below.
+
+Response Format:
 {
     "thoughts": {
         "text": "thought",
@@ -9,5 +12,4 @@
     "command": {"name": "command name", "args": {"arg name": "value"}},
 }
 
-You should only respond once in JSON format as described below
-Ensure that the response content conforms to the JSON Schema specification.
+Ensure that the response content adheres to the JSON format so that it can be successfully parsed by the Python json.load function.

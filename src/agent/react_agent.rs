@@ -1,25 +1,14 @@
 use super::{response::Response, ReActAgentConfig};
 use crate::{
     memory::ShortMemory,
+    planning::Planning,
     tools::{ToolExecute, Tools},
 };
-use anyhow::{anyhow, Result};
-use async_openai::{
-    config::OpenAIConfig,
-    types::{
-        ChatCompletionRequestAssistantMessage, ChatCompletionRequestAssistantMessageArgs,
-        ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
-        ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessage,
-        ChatCompletionRequestUserMessageArgs, CreateChatCompletionRequest,
-        CreateChatCompletionRequestArgs, CreateChatCompletionResponse,
-    },
-    Client,
-};
+use anyhow::Result;
+use async_openai::{config::OpenAIConfig, types::ChatCompletionRequestMessage, Client};
 use async_stream::stream;
 use futures::Stream;
 use std::pin::Pin;
-
-const RESPONSE_FORMAT: &str = include_str!("../template/react_response_format.txt");
 
 type MessageStream = Pin<Box<dyn Stream<Item = Result<ChatCompletionRequestMessage>> + Send>>;
 
@@ -41,10 +30,13 @@ impl ReActAgent {
     }
 
     pub async fn invoke(self, question: &str) -> Result<MessageStream> {
+        let language = self.config.language.to_string();
+        let planning = Planning::new();
         let mut short_memory = ShortMemory::new();
-        short_memory.append(self.build_system_message(question)?.into());
 
-        let user_message = Self::build_user_message(question)?;
+        short_memory.append(planning.build_system_message(question, &language)?.into());
+
+        let user_message = planning.build_user_message(question)?;
 
         let stream = stream! {
             // 并不将第一条用户信息发送给大模型，只是用来反馈给客户端
@@ -53,7 +45,7 @@ impl ReActAgent {
 
             'outer: for _step in 1..=self.config.max_steps {
                 // 请求大模型
-                let response = self.planning(short_memory.messages()).await?;
+                let response = planning.execute(&self.client, &self.config.model, self.config.temperature, short_memory.messages()).await?;
 
                 for choice in response.choices {
                     if let Some(assistant_prompt) = choice.message.content {
@@ -61,7 +53,7 @@ impl ReActAgent {
                         let response  = serde_json::from_str::<Response>(&assistant_prompt)?;
 
                         // 构建助手提示，放入短期记忆，在下次对话中使用
-                        let assistant_message = Self::build_assistant_message(&assistant_prompt)?;
+                        let assistant_message = planning.build_assistant_message(&assistant_prompt)?;
                         short_memory.append(assistant_message.clone().into());
                         yield Ok(assistant_message.into());
 
@@ -75,11 +67,9 @@ impl ReActAgent {
                         // 执行工具
                         let command_result = tool.execute().await?;
 
-                        // 提醒大模型结果必须是json格式
-                        let response_prompt = RESPONSE_FORMAT.lines().next_back().ok_or_else(|| anyhow!("No response format"))?;
+
                         // 构建用户提示，将执行工具返回的结果存入，并放入短期记忆，在下次对话中使用
-                        let user_prompt = format!("Command result: {}\n{}", command_result, response_prompt);
-                        let user_message = Self::build_user_message(&user_prompt)?;
+                        let user_message = planning.build_command_result(&command_result)?;
                         short_memory.append(user_message.clone().into());
                         yield Ok(user_message.into());
                     }
@@ -88,74 +78,6 @@ impl ReActAgent {
         };
 
         Ok(Box::pin(stream))
-    }
-
-    async fn planning(
-        &self,
-        messages: Vec<ChatCompletionRequestMessage>,
-    ) -> Result<CreateChatCompletionResponse> {
-        let request = self.create_request(messages)?;
-        // 大模型根据调用工具的返回结果，继续规划下一步
-        let response = self.client.chat().create(request).await?;
-        Ok(response)
-    }
-
-    /// 将用户问题构建进系统消息
-    ///
-    /// 系统消息模版内容块说明：
-    ///     头部内容：要求Agent独立解决问题，并且要严格遵循法律法规
-    ///     GOAL: 需要解决的目标，即用户提出的问题
-    ///     Constraints: 约束条件
-    ///     Commands: 工具集，Agent可以使用的工具
-    ///     Resources: 资源，Agent可以调用的资源
-    ///     (重点)Performance Evaluation: 性能评估，包含反思、自我批评、思维链、子问题分解
-    ///     Response Format: 响应格式，这里要求Agent返回json格式，方便反序列化
-    fn build_system_message(&self, question: &str) -> Result<ChatCompletionRequestSystemMessage> {
-        // todo!: 可定义的人设说明
-        let language = self.config.language.to_string();
-
-        let system_prompt = format!(
-            include_str!("../template/react_system_prompt.txt"),
-            language = language,
-            question = question,
-            commands = Tools::to_string()?,
-            response_format = RESPONSE_FORMAT,
-        );
-
-        let system_message = ChatCompletionRequestSystemMessageArgs::default()
-            .content(system_prompt)
-            .build()?;
-
-        Ok(system_message)
-    }
-
-    fn create_request(
-        &self,
-        messages: Vec<ChatCompletionRequestMessage>,
-    ) -> Result<CreateChatCompletionRequest> {
-        let request = CreateChatCompletionRequestArgs::default()
-            .model(self.config.model.as_str())
-            .temperature(self.config.temperature)
-            .messages(messages)
-            .build()?;
-
-        Ok(request)
-    }
-
-    fn build_user_message(content: &str) -> Result<ChatCompletionRequestUserMessage> {
-        let user_message = ChatCompletionRequestUserMessageArgs::default()
-            .content(content)
-            .build()?;
-
-        Ok(user_message)
-    }
-
-    fn build_assistant_message(content: &str) -> Result<ChatCompletionRequestAssistantMessage> {
-        let assistant_message = ChatCompletionRequestAssistantMessageArgs::default()
-            .content(content)
-            .build()?;
-
-        Ok(assistant_message)
     }
 }
 
@@ -175,14 +97,5 @@ mod tests {
 
         assert_eq!(agent.config, config);
         Ok(())
-    }
-
-    #[test]
-    fn test_response_prompt_latest_line() {
-        let response_prompt = RESPONSE_FORMAT.lines().next_back().unwrap();
-        assert_eq!(
-            response_prompt,
-            "Ensure that the response content conforms to the JSON Schema specification."
-        );
     }
 }

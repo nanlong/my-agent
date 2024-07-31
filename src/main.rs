@@ -7,9 +7,9 @@ use std::env;
 async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().expect("Failed to load .env file");
 
-    let api_key = env::var("MOONSHOT_API_KEY").expect("Missing MOONSHOT_API_KEY");
-    let model = env::var("MOONSHOT_MODEL").expect("Missing MOONSHOT_MODEL");
-    let api_base = env::var("MOONSHOT_API_BASE").expect("Missing MOONSHOT_API_BASE");
+    let api_key = env::var("OPENAI_API_KEY").expect("Missing OPENAI_API_KEY");
+    let model = env::var("OPENAI_MODEL").expect("Missing OPENAI_MODEL");
+    let api_base = env::var("OPENAI_API_BASE").expect("Missing OPENAI_API_BASE");
 
     let config = ReActAgentConfig::builder()
         .set_api_key(api_key)
