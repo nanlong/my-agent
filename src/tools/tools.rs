@@ -37,7 +37,7 @@ impl Debug for Tools {
 }
 
 impl Tools {
-    pub fn description() -> Result<String> {
+    pub fn to_string() -> Result<String> {
         let mut output = String::new();
 
         for (index, tool) in Tools::iter().enumerate() {

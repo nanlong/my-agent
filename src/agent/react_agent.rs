@@ -1,5 +1,8 @@
 use super::{response::Response, ReActAgentConfig};
-use crate::tools::{ToolExecute, Tools};
+use crate::{
+    memory::ShortMemory,
+    tools::{ToolExecute, Tools},
+};
 use anyhow::{anyhow, Result};
 use async_openai::{
     config::OpenAIConfig,
@@ -22,8 +25,8 @@ type MessageStream = Pin<Box<dyn Stream<Item = Result<ChatCompletionRequestMessa
 
 #[derive(Clone)]
 pub struct ReActAgent {
-    client: Client<OpenAIConfig>,
     config: ReActAgentConfig,
+    client: Client<OpenAIConfig>,
 }
 
 impl ReActAgent {
@@ -34,13 +37,14 @@ impl ReActAgent {
 
         let client = Client::with_config(openai_config);
 
-        Self { client, config }
+        Self { config, client }
     }
 
     pub async fn invoke(self, question: &str) -> Result<MessageStream> {
-        let system_message = self.build_system_message(question)?;
+        let mut short_memory = ShortMemory::new();
+        short_memory.append(self.build_system_message(question)?.into());
+
         let user_message = Self::build_user_message(question)?;
-        let mut history = Vec::new();
 
         let stream = stream! {
             // 并不将第一条用户信息发送给大模型，只是用来反馈给客户端
@@ -49,16 +53,16 @@ impl ReActAgent {
 
             'outer: for _step in 1..=self.config.max_steps {
                 // 请求大模型
-                let response = self.planning(&system_message, &history).await?;
+                let response = self.planning(short_memory.messages()).await?;
 
                 for choice in response.choices {
                     if let Some(assistant_prompt) = choice.message.content {
                         // 反序列化大模型返回的内容
                         let response  = serde_json::from_str::<Response>(&assistant_prompt)?;
 
-                        // 构建助手提示，放入历史消息，在下次对话中使用
+                        // 构建助手提示，放入短期记忆，在下次对话中使用
                         let assistant_message = Self::build_assistant_message(&assistant_prompt)?;
-                        history.push(assistant_message.clone().into());
+                        short_memory.append(assistant_message.clone().into());
                         yield Ok(assistant_message.into());
 
                         // 如果大模型要求结束对话，说明任务完成了，可以退出
@@ -73,10 +77,10 @@ impl ReActAgent {
 
                         // 提醒大模型结果必须是json格式
                         let response_prompt = RESPONSE_FORMAT.lines().next_back().ok_or_else(|| anyhow!("No response format"))?;
-                        // 构建用户提示，将执行工具返回的结果存入，并放入历史消息，在下次对话中使用
+                        // 构建用户提示，将执行工具返回的结果存入，并放入短期记忆，在下次对话中使用
                         let user_prompt = format!("Command result: {}\n{}", command_result, response_prompt);
                         let user_message = Self::build_user_message(&user_prompt)?;
-                        history.push(user_message.clone().into());
+                        short_memory.append(user_message.clone().into());
                         yield Ok(user_message.into());
                     }
                 }
@@ -88,11 +92,8 @@ impl ReActAgent {
 
     async fn planning(
         &self,
-        system_message: &ChatCompletionRequestSystemMessage,
-        history: &[ChatCompletionRequestMessage],
+        messages: Vec<ChatCompletionRequestMessage>,
     ) -> Result<CreateChatCompletionResponse> {
-        // 短期记忆：最后一条是上一次大模型要求调用工具的返回结果
-        let messages = Self::build_chat_messages(system_message, history);
         let request = self.create_request(messages)?;
         // 大模型根据调用工具的返回结果，继续规划下一步
         let response = self.client.chat().create(request).await?;
@@ -117,7 +118,7 @@ impl ReActAgent {
             include_str!("../template/react_system_prompt.txt"),
             language = language,
             question = question,
-            commands = Tools::description()?,
+            commands = Tools::to_string()?,
             response_format = RESPONSE_FORMAT,
         );
 
@@ -155,15 +156,6 @@ impl ReActAgent {
             .build()?;
 
         Ok(assistant_message)
-    }
-
-    fn build_chat_messages(
-        system_message: &ChatCompletionRequestSystemMessage,
-        history: &[ChatCompletionRequestMessage],
-    ) -> Vec<ChatCompletionRequestMessage> {
-        let mut messages = vec![system_message.clone().into()];
-        messages.extend(history.iter().cloned());
-        messages
     }
 }
 
