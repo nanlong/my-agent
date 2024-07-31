@@ -74,7 +74,7 @@ impl SearchParameters {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SearchResponse {
     pub answer: Option<String>,
-    pub query: String,
+    pub query: Option<String>,
     pub response_time: f64,
     pub images: Vec<String>,
     pub results: Vec<SearchItem>,
@@ -216,7 +216,7 @@ mod tests {
 
         let response = serde_json::from_str::<SearchResponse>(json_response)?;
 
-        assert_eq!(response.query, "Who is Leo Messi?");
+        assert_eq!(response.query, Some("Who is Leo Messi?".to_string()));
         assert_eq!(response.results.len(), 5);
 
         Ok(())

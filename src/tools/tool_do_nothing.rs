@@ -7,7 +7,7 @@ pub struct DoNothing;
 
 impl ToolExecute for DoNothing {
     async fn execute(&self) -> Result<String> {
-        Ok("Do nothing".to_string())
+        Ok("请尽快完成任务目标".to_string())
     }
 }
 

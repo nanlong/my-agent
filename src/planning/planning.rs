@@ -1,17 +1,20 @@
 use crate::tools::Tools;
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use async_openai::{
     config::OpenAIConfig,
     types::{
         ChatCompletionRequestAssistantMessage, ChatCompletionRequestAssistantMessageArgs,
         ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
         ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessage,
-        ChatCompletionRequestUserMessageArgs, CreateChatCompletionRequest,
+        ChatCompletionRequestUserMessageArgs, ChatCompletionResponseFormat,
+        ChatCompletionResponseFormatType, CreateChatCompletionRequest,
         CreateChatCompletionRequestArgs, CreateChatCompletionResponse,
     },
     Client,
 };
 use tera::Tera;
+
+const REFORMAT_RESPONSE: &str = include_str!("./template/reformat_response.txt");
 
 pub(crate) struct Planning {
     system_temp: String,
@@ -61,14 +64,21 @@ impl Planning {
     }
 
     pub fn build_command_result(&self, result: &str) -> Result<ChatCompletionRequestUserMessage> {
-        // 提醒大模型结果必须是json格式
-        let response_prompt = self
-            .response_temp
-            .lines()
-            .next_back()
-            .ok_or_else(|| anyhow!("No response format"))?;
+        let user_message = ChatCompletionRequestUserMessageArgs::default()
+            .content(result)
+            .build()?;
 
-        let content = format!("Command result: {}\n{}", result, response_prompt);
+        Ok(user_message)
+    }
+
+    pub fn build_fixjson_message(&self, content: &str) -> Result<ChatCompletionRequestUserMessage> {
+        let mut tera = Tera::default();
+        tera.add_raw_template("reformat_response", REFORMAT_RESPONSE)?;
+
+        let mut context = tera::Context::new();
+        context.insert("response", content);
+
+        let content = tera.render("reformat_response", &context)?;
 
         let user_message = ChatCompletionRequestUserMessageArgs::default()
             .content(content)
@@ -119,6 +129,9 @@ impl Planning {
             .model(model)
             .temperature(temperature)
             .messages(messages)
+            .response_format(ChatCompletionResponseFormat {
+                r#type: ChatCompletionResponseFormatType::JsonObject,
+            })
             .build()?;
 
         Ok(request)

@@ -1,15 +1,15 @@
-You should only respond once in JSON format as described below.
+你应该只输出JSON格式的数据.
 
-Response Format:
+响应格式如下所述:
 {
     "thoughts": {
-        "text": "thought",
-        "reasoning": "reasoning",
-        "plan": "- short bulleted\n- list that conveys\n- long-term plan",
-        "criticism": "constructive self-criticism",
-        "speak": "thoughts summary to say to user",
+        "text": "内心的想法",
+        "reasoning": "推理过程",
+        "plan": "简单的描述短期和长期的计划列表，字符串类型",
+        "criticism": "建设性的自我批评",
+        "speak": "将自己的想法总结整理，说给用户听",
     },
-    "command": {"name": "command name", "args": {"arg name": "value"}},
+    "command": {"name": "命令名称", "args": {"参数名称": "参数值"}},
 }
 
-Ensure that the response content adheres to the JSON format so that it can be successfully parsed by the Python json.load function.
+确保响应内容遵循JSON格式，以便Python json.load 函数能够成功解析.

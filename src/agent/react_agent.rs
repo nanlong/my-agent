@@ -45,12 +45,28 @@ impl ReActAgent {
 
             'outer: for _step in 1..=self.config.max_steps {
                 // 请求大模型
-                let response = planning.execute(&self.client, &self.config.model, self.config.temperature, short_memory.messages()).await?;
+                let response =
+                    match planning.execute(&self.client, &self.config.model, self.config.temperature, short_memory.messages()).await {
+                        Ok(response) => response,
+                        Err(_) => {
+                            println!("Failed to get response from OpenAI, retrying...");
+                            continue;
+                        },
+                    };
 
                 for choice in response.choices {
                     if let Some(assistant_prompt) = choice.message.content {
                         // 反序列化大模型返回的内容
-                        let response  = serde_json::from_str::<Response>(&assistant_prompt)?;
+                        let response  = match serde_json::from_str::<Response>(&assistant_prompt) {
+                            Ok(response) => response,
+                            Err(_) => {
+                                // 如果不能正常解析，修复json格式
+                                let user_message = planning.build_fixjson_message(&assistant_prompt)?;
+                                short_memory.append(user_message.clone().into());
+                                yield Ok(user_message.into());
+                                continue;
+                            },
+                        };
 
                         // 构建助手提示，放入短期记忆，在下次对话中使用
                         let assistant_message = planning.build_assistant_message(&assistant_prompt)?;
