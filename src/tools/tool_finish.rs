@@ -1,10 +1,9 @@
-use super::ToolExector;
+use super::{ToolExector, ToolPrompt};
 use anyhow::Result;
 use std::fmt::{self, Debug};
 
 #[derive(Default)]
 pub struct Finish {
-    #[allow(dead_code)]
     result: String,
 }
 
@@ -12,8 +11,16 @@ impl Finish {
     pub fn new(result: String) -> Self {
         Self { result }
     }
+}
 
-    pub fn command(&self) -> String {
+impl ToolExector for Finish {
+    async fn execute(&self) -> Result<String> {
+        Ok(self.result.clone())
+    }
+}
+
+impl ToolPrompt for Finish {
+    fn command(&self) -> String {
         r#"{
             "name": "finish",
             "description": "完成用户的任务目标",
@@ -28,14 +35,8 @@ impl Finish {
         .to_string()
     }
 
-    pub fn resource(&self) -> String {
+    fn resource(&self) -> String {
         "完成用户的任务目标".to_string()
-    }
-}
-
-impl ToolExector for Finish {
-    async fn execute(&self) -> Result<String> {
-        Ok("Done".to_string())
     }
 }
 

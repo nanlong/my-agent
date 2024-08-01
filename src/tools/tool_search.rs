@@ -1,6 +1,6 @@
 use super::{
     search::tavily::{SearchParameters, Tavily},
-    ToolExector,
+    ToolExector, ToolPrompt,
 };
 use anyhow::{anyhow, Result};
 use std::fmt::{self, Debug};
@@ -21,24 +21,6 @@ impl Search {
             input,
         }
     }
-
-    pub fn command(&self) -> String {
-        r#"{
-            "name": "search",
-            "description": "这是一个搜索引擎，当你已有的知识不足以完成目标任务时，可以通过它获取互联网上的信息",
-            "args": [
-                {
-                    "name": "input",
-                    "type": "string",
-                    "description": "需要搜索的内容"
-                }
-            ]
-        }"#.to_string()
-    }
-
-    pub fn resource(&self) -> String {
-        "上网搜索和收集信息".to_string()
-    }
 }
 
 impl ToolExector for Search {
@@ -53,6 +35,26 @@ impl ToolExector for Search {
         let response = client.search(params).await?;
 
         Ok(format!("{}", response))
+    }
+}
+
+impl ToolPrompt for Search {
+    fn command(&self) -> String {
+        r#"{
+            "name": "search",
+            "description": "这是一个搜索引擎，当你已有的知识不足以完成目标任务时，可以通过它获取互联网上的信息",
+            "args": [
+                {
+                    "name": "input",
+                    "type": "string",
+                    "description": "需要搜索的内容"
+                }
+            ]
+        }"#.to_string()
+    }
+
+    fn resource(&self) -> String {
+        "上网搜索和收集信息".to_string()
     }
 }
 

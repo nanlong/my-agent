@@ -1,55 +1,15 @@
-use super::{tool_finish::Finish, tool_search::Search, ToolExector};
+use super::{tool_finish::Finish, tool_search::Search, ToolExector, ToolPrompt};
 use crate::agent::response::Command;
 use anyhow::{anyhow, Result};
 use enum_dispatch::enum_dispatch;
-use std::{
-    convert::TryFrom,
-    fmt::{self, Debug, Write},
-};
+use std::convert::TryFrom;
 use strum::{EnumIter, IntoEnumIterator};
 
 #[derive(EnumIter)]
-#[enum_dispatch(ToolExector)]
+#[enum_dispatch(ToolExector, ToolPrompt)]
 pub enum Tools {
     Search(Search),
     Finish(Finish),
-}
-
-impl Debug for Tools {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Tools::Search(tool) => write!(f, "{:?}", tool),
-            Tools::Finish(tool) => write!(f, "{:?}", tool),
-        }
-    }
-}
-
-impl Tools {
-    pub fn commands() -> Result<String> {
-        let mut output = String::new();
-
-        for tool in Tools::iter() {
-            match tool {
-                Tools::Search(tool) => writeln!(output, "- {}", tool.command())?,
-                Tools::Finish(tool) => writeln!(output, "- {}", tool.command())?,
-            }
-        }
-
-        Ok(output)
-    }
-
-    pub fn resources() -> Result<String> {
-        let mut output = String::new();
-
-        for tool in Tools::iter() {
-            match tool {
-                Tools::Search(tool) => writeln!(output, "- {}", tool.resource())?,
-                Tools::Finish(_) => {}
-            }
-        }
-
-        Ok(output)
-    }
 }
 
 impl TryFrom<Command> for Tools {
@@ -81,5 +41,28 @@ impl TryFrom<Command> for Tools {
             }
             _ => Err(anyhow!("Unknown command")),
         }
+    }
+}
+
+impl Tools {
+    pub fn commands() -> Result<String> {
+        let output = Tools::iter()
+            .map(|tool| format!("- {}", tool.command()))
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        Ok(output)
+    }
+
+    pub fn resources() -> Result<String> {
+        let output = Tools::iter()
+            .filter_map(|tool| match tool {
+                Tools::Finish(_) => None,
+                _ => Some(format!("- {}", tool.resource())),
+            })
+            .collect::<Vec<String>>()
+            .join("\n");
+
+        Ok(output)
     }
 }
