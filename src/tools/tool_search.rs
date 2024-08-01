@@ -1,9 +1,9 @@
 use super::{
     search::tavily::{SearchParameters, Tavily},
-    ToolExecute,
+    ToolExector,
 };
 use anyhow::{anyhow, Result};
-use std::fmt::{self, Debug, Display};
+use std::fmt::{self, Debug};
 
 #[derive(Default)]
 pub struct Search {
@@ -21,9 +21,27 @@ impl Search {
             input,
         }
     }
+
+    pub fn command(&self) -> String {
+        r#"{
+            "name": "search",
+            "description": "这是一个搜索引擎，当你已有的知识不足以完成目标任务时，可以通过它获取互联网上的信息",
+            "args": [
+                {
+                    "name": "input",
+                    "type": "string",
+                    "description": "需要搜索的内容"
+                }
+            ]
+        }"#.to_string()
+    }
+
+    pub fn resource(&self) -> String {
+        "上网搜索和收集信息".to_string()
+    }
 }
 
-impl ToolExecute for Search {
+impl ToolExector for Search {
     async fn execute(&self) -> Result<String> {
         let params = SearchParameters::builder().query(&self.input).build()?;
 
@@ -43,12 +61,5 @@ impl Debug for Search {
         f.debug_struct("Search")
             .field("input", &self.input)
             .finish()
-    }
-}
-
-impl Display for Search {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let description = r#"Search : "search", args: "input": "<search content>""#;
-        write!(f, "{}", description)
     }
 }

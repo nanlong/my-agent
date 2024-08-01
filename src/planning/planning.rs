@@ -47,7 +47,8 @@ impl Planning {
         let mut context = Context::new();
         context.insert("language", language);
         context.insert("question", question);
-        context.insert("commands", &Tools::to_string()?);
+        context.insert("commands", &Tools::commands()?);
+        context.insert("resources", &Tools::resources()?);
         context.insert("response_format", &response_format);
 
         let system_prompt = self.engine.render("system.prompt", &context)?;

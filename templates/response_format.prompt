@@ -1,15 +1,70 @@
-你应该只输出JSON格式的数据.
+你应该只输出一条遵守JSON格式规则的数据.
+确保数据遵循JSON格式，以便Python json.load 函数能够成功解析.
 
-响应格式如下所述:
+数据格式如下所述:
 {
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "description": "这个数据格式在你的每次回复中，总是有且只有一个，并且没有其他额外的信息",
+  "properties": {
     "thoughts": {
-        "text": "内心的想法",
-        "reasoning": "推理过程",
-        "plan": "简单的描述短期和长期的计划列表，字符串类型",
-        "criticism": "建设性的自我批评",
-        "speak": "将自己的想法总结整理，说给用户听",
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "内心的想法",
+          "required": true
+        },
+        "reasoning": {
+          "type": "string",
+          "description": "推理过程",
+          "required": true
+        },
+        "plan": {
+          "type": "string",
+          "description": "简单的描述短期和长期的计划列表，字符串类型",
+          "required": true
+        },
+        "criticism": {
+          "type": "string",
+          "description": "建设性的自我批评",
+          "required": true
+        },
+        "speak": {
+          "type": "string",
+          "description": "将自己的想法总结整理，说给用户听",
+          "required": true
+        }
+      },
+      "required": true
     },
-    "command": {"name": "命令名称", "args": {"参数名称": "参数值"}},
+    "command": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "命令名称",
+          "required": true
+        },
+        "args": {
+          "type": "object",
+          "description": "命令参数，当不需要参数时，应为空字典",
+          "properties": {
+            "key": {
+              "type": "string",
+              "description": "参数名称"
+            },
+            "value": {
+              "type": ["string", "number", "boolean"], // 假设参数值可以是字符串、数字或布尔值
+              "description": "参数值"
+            }
+          },
+          "additionalProperties": true,
+          "default": {}
+        }
+      },
+      "required": true
+    }
+  },
+  "required": true
 }
-
-确保响应内容遵循JSON格式，以便Python json.load 函数能够成功解析.
