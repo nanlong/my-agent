@@ -31,7 +31,7 @@ impl ReActAgent {
 
     pub async fn invoke(self, question: &str) -> Result<MessageStream> {
         let language = self.config.language.to_string();
-        let planning = Planning::new();
+        let planning = Planning::try_new()?;
         let mut short_memory = ShortMemory::new();
 
         short_memory.append(planning.build_system_message(question, &language)?.into());

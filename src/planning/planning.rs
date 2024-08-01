@@ -12,21 +12,16 @@ use async_openai::{
     },
     Client,
 };
-use tera::Tera;
-
-const REFORMAT_RESPONSE: &str = include_str!("./template/reformat_response.txt");
+use tera::{Context, Tera};
 
 pub(crate) struct Planning {
-    system_temp: String,
-    response_temp: String,
+    engine: Tera,
 }
 
 impl Planning {
-    pub fn new() -> Self {
-        Self {
-            system_temp: include_str!("./template/react_system_prompt.txt").to_string(),
-            response_temp: include_str!("./template/react_response_format.txt").to_string(),
-        }
+    pub fn try_new() -> Result<Self> {
+        let engine = Tera::new("templates/**/*")?;
+        Ok(Planning { engine })
     }
 
     /// 将用户问题构建进系统消息
@@ -45,16 +40,17 @@ impl Planning {
         language: &str,
     ) -> Result<ChatCompletionRequestSystemMessage> {
         // todo!: 可定义的人设说明
-        let mut tera = Tera::default();
-        tera.add_raw_template("system_prompt", &self.system_temp)?;
+        let response_format = self
+            .engine
+            .render("response_format.prompt", &Default::default())?;
 
-        let mut context = tera::Context::new();
+        let mut context = Context::new();
         context.insert("language", language);
         context.insert("question", question);
         context.insert("commands", &Tools::to_string()?);
-        context.insert("response_format", &self.response_temp);
+        context.insert("response_format", &response_format);
 
-        let system_prompt = tera.render("system_prompt", &context)?;
+        let system_prompt = self.engine.render("system.prompt", &context)?;
 
         let system_message = ChatCompletionRequestSystemMessageArgs::default()
             .content(system_prompt)
@@ -72,13 +68,10 @@ impl Planning {
     }
 
     pub fn build_fixjson_message(&self, content: &str) -> Result<ChatCompletionRequestUserMessage> {
-        let mut tera = Tera::default();
-        tera.add_raw_template("reformat_response", REFORMAT_RESPONSE)?;
-
-        let mut context = tera::Context::new();
+        let mut context = Context::new();
         context.insert("response", content);
 
-        let content = tera.render("reformat_response", &context)?;
+        let content = self.engine.render("fix_response_format.prompt", &context)?;
 
         let user_message = ChatCompletionRequestUserMessageArgs::default()
             .content(content)
@@ -135,5 +128,18 @@ impl Planning {
             .build()?;
 
         Ok(request)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_find_template() -> Result<()> {
+        let planning = Planning::try_new()?;
+
+        assert!(planning.engine.get_template("system.prompt").is_ok());
+        Ok(())
     }
 }

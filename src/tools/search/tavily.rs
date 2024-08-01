@@ -29,7 +29,7 @@ impl Tavily {
 
         let response = self
             .client
-            .post(&format!("{}/search", self.base_url))
+            .post(format!("{}/search", self.base_url))
             .json(&params)
             .send()
             .await?
