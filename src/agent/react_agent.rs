@@ -63,31 +63,36 @@ impl ReActAgent {
                                 // 如果不能正常解析，修复json格式
                                 let user_message = planning.build_fixjson_message(&assistant_prompt)?;
                                 short_memory.append(user_message.clone().into());
-                                yield Ok(user_message.into());
                                 continue;
                             },
                         };
 
                         // 构建助手提示，放入短期记忆，在下次对话中使用
                         let assistant_message = planning.build_assistant_message(&assistant_prompt)?;
-                        short_memory.append(assistant_message.clone().into());
-                        yield Ok(assistant_message.into());
+                        // println!("Assistant Debug: {:?}", assistant_message);
+                        short_memory.append(assistant_message.into());
 
-                        // 如果大模型要求结束对话，说明任务完成了，可以退出
-                        if response.command.name == "finish" {
-                            break 'outer;
-                        }
+                        // 用户可以看到的
+                        let assistant_message = planning.build_assistant_message(&response.thoughts.speak)?;
+                        yield Ok(assistant_message.into());
 
                         // 反序列化工具
                         let tool = Tools::try_from(response.command)?;
+
                         // 执行工具
                         let command_result = tool.execute().await?;
 
+                        // 如果大模型要求结束对话，说明任务完成了，可以退出
+                        if let Tools::Finish(_) = tool {
+                            let assistant_message = planning.build_assistant_message(&command_result)?;
+                            yield Ok(assistant_message.into());
+
+                            break 'outer;
+                        }
 
                         // 构建用户提示，将执行工具返回的结果存入，并放入短期记忆，在下次对话中使用
                         let user_message = planning.build_command_result(&command_result)?;
                         short_memory.append(user_message.clone().into());
-                        yield Ok(user_message.into());
                     }
                 }
             }

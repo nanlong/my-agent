@@ -1,6 +1,6 @@
 use async_openai::types::ChatCompletionRequestMessage;
 use futures::StreamExt;
-use my_agent::agent::{ReActAgent, ReActAgentConfig, Response};
+use my_agent::agent::{ReActAgent, ReActAgentConfig};
 use std::env;
 
 #[tokio::main]
@@ -20,7 +20,8 @@ async fn main() -> anyhow::Result<()> {
 
     let agent = ReActAgent::new(config);
 
-    let question = "周杰伦今年多大了？他的年龄的0.23次方是多少？";
+    // let question = "周杰伦今年多大了？他的年龄的0.23次方是多少？";
+    let question = "制作一份关于周杰伦的简历";
 
     let mut stream = agent.invoke(question).await?;
 
@@ -32,13 +33,7 @@ async fn main() -> anyhow::Result<()> {
                 Some(("User", serde_json::to_string(&message.content)?))
             }
             ChatCompletionRequestMessage::Assistant(message) => {
-                if let Some(content) = message.content {
-                    let content = serde_json::from_str::<Response>(content.as_str())?;
-                    let content = serde_json::to_string_pretty(&content)?;
-                    Some(("Assistant", content))
-                } else {
-                    None
-                }
+                message.content.map(|content| ("Assistant", content))
             }
             _ => None,
         } {
