@@ -4,48 +4,44 @@ use std::{
     fmt::{self, Debug},
     path::Path,
 };
-use tokio::{
-    fs::{self, File},
-    io::AsyncWriteExt,
-};
+use tokio::{fs::File, io::AsyncWriteExt};
 
 #[derive(Default)]
-pub struct FileWrite {
+pub struct FileAppend {
     filename: String,
     content: String,
 }
 
-impl FileWrite {
+impl FileAppend {
     pub fn new(filename: String, content: String) -> Self {
-        FileWrite { filename, content }
+        FileAppend { filename, content }
     }
 }
 
-impl ToolExector for FileWrite {
+impl ToolExector for FileAppend {
     async fn execute(&self) -> Result<String> {
-        let path = Path::new(".").join("output");
-        fs::create_dir_all(&path).await?;
-        let mut file = File::create(path.join(&self.filename)).await?;
+        let path = Path::new(".").join("output").join(&self.filename);
+        let mut file = File::options().append(true).open(path).await?;
         file.write_all(self.content.as_bytes()).await?;
         Ok("写入成功".to_string())
     }
 }
 
-impl ToolPrompt for FileWrite {
+impl ToolPrompt for FileAppend {
     fn command(&self) -> String {
         r#"{
-            "name": "file_write",
-            "description": "文件写入工具：用于将内容写入文件，将覆盖原有内容",
+            "name": "file_append",
+            "description": "文件写入工具：用于将内容追加到文件末尾",
             "args": [
                 {
                     "name": "filename",
                     "type": "string",
-                    "description": "文件名称，请保证文件名称的唯一性"
+                    "description": "文件名称，要使用曾经创建过的文件"
                 },
                 {
                     "name": "content",
                     "type": "string",
-                    "description": "文件内容"
+                    "description": "文件追加内容"
                 }
             ]
         }"#
@@ -53,13 +49,13 @@ impl ToolPrompt for FileWrite {
     }
 
     fn resource(&self) -> String {
-        "将内容写入文件".to_string()
+        "将内容追加到文件末尾".to_string()
     }
 }
 
-impl Debug for FileWrite {
+impl Debug for FileAppend {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("FileWrite")
+        f.debug_struct("FileAppend")
             .field("filename", &self.filename)
             .field("content", &self.content)
             .finish()
@@ -71,8 +67,8 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_file_write() -> Result<()> {
-        let file_write = FileWrite::new("test.txt".to_string(), "test content 1".to_string());
+    async fn test_file_append() -> Result<()> {
+        let file_write = FileAppend::new("test.txt".to_string(), "test content 1".to_string());
         let result = file_write.execute().await?;
         assert_eq!(result, "写入成功");
 

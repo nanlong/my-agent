@@ -1,5 +1,6 @@
 use super::{
-    tool_file_write::FileWrite, tool_finish::Finish, tool_search::Search, ToolExector, ToolPrompt,
+    tool_file_append::FileAppend, tool_file_write::FileWrite, tool_finish::Finish,
+    tool_search::Search, ToolExector, ToolPrompt,
 };
 use crate::agent::response::Command;
 use anyhow::{anyhow, Result};
@@ -12,6 +13,7 @@ use strum::{EnumIter, IntoEnumIterator};
 pub enum Tools {
     Search(Search),
     FileWrite(FileWrite),
+    FileAppend(FileAppend),
     Finish(Finish),
 }
 
@@ -49,6 +51,25 @@ impl TryFrom<Command> for Tools {
                     .to_string();
 
                 Ok(Tools::FileWrite(FileWrite::new(filename, content)))
+            }
+            "file_append" => {
+                let filename = command
+                    .args
+                    .get("filename")
+                    .ok_or_else(|| anyhow!("Missing file_append filename arg"))?
+                    .as_str()
+                    .ok_or_else(|| anyhow!("Filename arg convert str failed"))?
+                    .to_string();
+
+                let content = command
+                    .args
+                    .get("content")
+                    .ok_or_else(|| anyhow!("Missing file_append content arg"))?
+                    .as_str()
+                    .ok_or_else(|| anyhow!("Content arg convert str failed"))?
+                    .to_string();
+
+                Ok(Tools::FileAppend(FileAppend::new(filename, content)))
             }
             "finish" => {
                 let result = command
