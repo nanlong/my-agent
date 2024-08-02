@@ -1,6 +1,6 @@
 use super::{
-    tool_file_append::FileAppend, tool_file_write::FileWrite, tool_finish::Finish,
-    tool_search::Search, ToolExector, ToolPrompt,
+    tool_code_interpreter::CodeInterpreter, tool_file_append::FileAppend,
+    tool_file_write::FileWrite, tool_finish::Finish, tool_search::Search, ToolExector, ToolPrompt,
 };
 use crate::agent::response::Command;
 use anyhow::{anyhow, Result};
@@ -8,12 +8,13 @@ use enum_dispatch::enum_dispatch;
 use std::convert::TryFrom;
 use strum::{EnumIter, IntoEnumIterator};
 
-#[derive(EnumIter)]
-#[enum_dispatch(ToolExector, ToolPrompt)]
+#[derive(Debug, EnumIter)]
+#[enum_dispatch(ToolExector, ToolPrompt, Debug)]
 pub enum Tools {
     Search(Search),
     FileWrite(FileWrite),
     FileAppend(FileAppend),
+    CodeInterpreter(CodeInterpreter),
     Finish(Finish),
 }
 
@@ -70,6 +71,25 @@ impl TryFrom<Command> for Tools {
                     .to_string();
 
                 Ok(Tools::FileAppend(FileAppend::new(filename, content)))
+            }
+            "code_interpreter" => {
+                let language = command
+                    .args
+                    .get("language")
+                    .ok_or_else(|| anyhow!("Missing code_interpreter language arg"))?
+                    .as_str()
+                    .ok_or_else(|| anyhow!("Language arg convert str failed"))?
+                    .to_string();
+
+                let code = command
+                    .args
+                    .get("code")
+                    .ok_or_else(|| anyhow!("Missing code_interpreter code arg"))?
+                    .as_str()
+                    .ok_or_else(|| anyhow!("Code arg convert str failed"))?
+                    .to_string();
+
+                Ok(Tools::CodeInterpreter(CodeInterpreter::new(language, code)))
             }
             "finish" => {
                 let result = command

@@ -61,7 +61,7 @@ impl Debug for FileWrite {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("FileWrite")
             .field("filename", &self.filename)
-            .field("content", &self.content)
+            .field("content", &"...")
             .finish()
     }
 }

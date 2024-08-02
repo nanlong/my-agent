@@ -1,5 +1,4 @@
 你应该只输出一条遵守JSON格式规则的数据.
-确保数据遵循JSON格式，以便Python json.load 函数能够成功解析.
 
 数据格式如下所述:
 {
@@ -68,3 +67,5 @@
   },
   "required": true
 }
+
+必须确保数据遵循JSON格式，以便Python json.load 函数能够成功解析.

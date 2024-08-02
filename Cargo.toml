@@ -21,3 +21,5 @@ serde = { version = "1.0.204", features = ["derive"] }
 enum_dispatch = "0.3.13"
 strum = { version = "0.26.3", features = ["derive"] }
 tera = "1.20.0"
+pyo3 = { version = "0.22.2", features = ["auto-initialize"] }
+chrono = { version = "0.4.38", features = ["unstable-locales"] }

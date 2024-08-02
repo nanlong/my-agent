@@ -1,4 +1,5 @@
 pub mod search;
+mod tool_code_interpreter;
 mod tool_file_append;
 mod tool_file_write;
 mod tool_finish;

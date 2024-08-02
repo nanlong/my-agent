@@ -49,27 +49,29 @@ impl ReActAgent {
                     match planning.execute(&self.client, &self.config.model, self.config.temperature, short_memory.messages()).await {
                         Ok(response) => response,
                         Err(_) => {
-                            println!("Failed to get response from OpenAI, retrying...");
+                            println!("请求大模型遇到网络错误，马上进行重试操作...");
                             continue;
                         },
                     };
 
                 for choice in response.choices {
                     if let Some(assistant_prompt) = choice.message.content {
+                        // println!("Assistant debug: {:?}", assistant_prompt);
                         // 反序列化大模型返回的内容
                         let response  = match serde_json::from_str::<Response>(&assistant_prompt) {
                             Ok(response) => response,
                             Err(_) => {
+                                // 不是合法的json格式，让大模型修复
+                                println!("返回信息不符合JSON格式，进行修复。");
                                 // 如果不能正常解析，修复json格式
                                 let user_message = planning.build_fixjson_message(&assistant_prompt)?;
-                                short_memory.append(user_message.clone().into());
+                                short_memory.append(user_message.into());
                                 continue;
                             },
                         };
 
                         // 构建助手提示，放入短期记忆，在下次对话中使用
                         let assistant_message = planning.build_assistant_message(&assistant_prompt)?;
-                        // println!("Assistant Debug: {:?}", assistant_message);
                         short_memory.append(assistant_message.into());
 
                         // 用户可以看到的
@@ -79,8 +81,19 @@ impl ReActAgent {
                         // 反序列化工具
                         let tool = Tools::try_from(response.command)?;
 
+                        println!("执行命令: {:?}", tool);
+
                         // 执行工具
-                        let command_result = tool.execute().await?;
+                        let command_result = match tool.execute().await {
+                            Ok(result) => result,
+                            Err(e) => {
+                                // 工具执行失败，将错误信息返回给大模型
+                                println!("Failed to execute tool \n{}", e);
+                                let user_message = planning.build_fixjson_message(&e.to_string())?;
+                                short_memory.append(user_message.into());
+                                continue;
+                            },
+                        };
 
                         // 如果大模型要求结束对话，说明任务完成了，可以退出
                         if let Tools::Finish(_) = tool {

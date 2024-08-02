@@ -1,4 +1,5 @@
 use async_openai::types::ChatCompletionRequestMessage;
+use chrono::prelude::*;
 use futures::StreamExt;
 use my_agent::agent::{ReActAgent, ReActAgentConfig};
 use std::env;
@@ -20,8 +21,8 @@ async fn main() -> anyhow::Result<()> {
 
     let agent = ReActAgent::new(config);
 
-    // let question = "周杰伦今年多大了？他的年龄的0.23次方是多少？";
-    let question = "制作一份关于周杰伦的简历";
+    let question = "周杰伦今年多大了？他的年龄的0.23次方是多少？";
+    // let question = "制作一份关于周杰伦的简历";
 
     let mut stream = agent.invoke(question).await?;
 
@@ -37,7 +38,8 @@ async fn main() -> anyhow::Result<()> {
             }
             _ => None,
         } {
-            println!("{}: {}", role, content);
+            let local = Local::now().format("%m-%d %H:%M:%S").to_string();
+            println!("[{}] {}: {}", local, role, content);
         }
     }
 

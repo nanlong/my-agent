@@ -57,7 +57,7 @@ impl Debug for FileAppend {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("FileAppend")
             .field("filename", &self.filename)
-            .field("content", &self.content)
+            .field("content", &"...")
             .finish()
     }
 }

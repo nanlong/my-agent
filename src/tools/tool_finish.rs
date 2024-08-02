@@ -42,6 +42,8 @@ impl ToolPrompt for Finish {
 
 impl Debug for Finish {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Finish").finish()
+        f.debug_struct("Finish")
+            .field("result", &self.result)
+            .finish()
     }
 }
