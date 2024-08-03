@@ -1,5 +1,14 @@
 use super::{ToolExector, ToolPrompt};
-use anyhow::Result;
+use anyhow::{anyhow, Result};
+use async_openai::{
+    error::OpenAIError,
+    types::{
+        ChatCompletionTool, ChatCompletionToolArgs, ChatCompletionToolType, FunctionCall,
+        FunctionObjectArgs,
+    },
+};
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::{
     fmt::{self, Debug},
     path::Path,
@@ -63,6 +72,55 @@ impl Debug for FileWrite {
             .field("filename", &self.filename)
             .field("content", &"...")
             .finish()
+    }
+}
+
+impl TryFrom<FileWrite> for ChatCompletionTool {
+    type Error = OpenAIError;
+
+    fn try_from(_file_write: FileWrite) -> Result<Self, Self::Error> {
+        ChatCompletionToolArgs::default()
+            .r#type(ChatCompletionToolType::Function)
+            .function(
+                FunctionObjectArgs::default()
+                    .name("file_write")
+                    .description("文件写入工具：用于将内容写入文件，将覆盖原有内容")
+                    .parameters(json!({
+                        "type": "object",
+                        "properties": {
+                            "filename": {
+                                "type": "string",
+                                "description": "文件名称，请保证文件名称的唯一性",
+                            },
+                            "content": {
+                                "type": "string",
+                                "description": "文件内容",
+                            },
+                        },
+                        "required": ["filename", "content"],
+                    }))
+                    .build()?,
+            )
+            .build()
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct FileWriteArgs {
+    filename: String,
+    content: String,
+}
+
+impl TryFrom<FunctionCall> for FileWrite {
+    type Error = anyhow::Error;
+
+    fn try_from(call: FunctionCall) -> Result<Self, Self::Error> {
+        if call.name == "file_write" {
+            let args: FileWriteArgs = serde_json::from_str(&call.arguments)?;
+            Ok(FileWrite::new(args.filename, args.content))
+        } else {
+            Err(anyhow!("Invalid function call: {:?}", call))
+        }
     }
 }
 

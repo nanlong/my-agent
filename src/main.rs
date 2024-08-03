@@ -21,8 +21,9 @@ async fn main() -> anyhow::Result<()> {
 
     let agent = ReActAgent::new(config);
 
-    let question = "周杰伦今年多大了？他的年龄的0.23次方是多少？";
+    // let question = "周杰伦今年多大了？他的年龄的0.23次方是多少？";
     // let question = "制作一份关于周杰伦的简历";
+    let question = "请联网搜索 Context Caching，并告诉我它是什么。";
 
     let mut stream = agent.invoke(question).await?;
 
@@ -36,6 +37,10 @@ async fn main() -> anyhow::Result<()> {
             ChatCompletionRequestMessage::Assistant(message) => {
                 message.content.map(|content| ("Assistant", content))
             }
+            ChatCompletionRequestMessage::Tool(message) => Some((
+                "Tool",
+                format!("{} - {}", message.tool_call_id, message.content),
+            )),
             _ => None,
         } {
             let local = Local::now().format("%m-%d %H:%M:%S").to_string();

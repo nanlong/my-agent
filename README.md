@@ -18,6 +18,3 @@
 - [Chain-of-Thought Prompting Elicits Reasoning in Large Language Models](https://ar5iv.labs.arxiv.org/html/2201.11903)
 - [Synergizing Reasoning and Acting in Language Models](https://ar5iv.labs.arxiv.org/html/2210.03629)
 - [周杰伦年龄的 0.23 次方是多少？利用 ReAct 实现 ChatGPT 插件（AutoGPT 基础）](https://www.bilibili.com/video/BV1jP411d7or/?p=4&spm_id_from=333.880.my_history.page.click&vd_source=56a65708f3ed01335264f19b8a281094)
-
-各位兄弟有对 AI Agent 感兴趣的吗？我用 Rust 构建了一个简单的，用来学习研究的。欢迎大家一起交流。
-https://github.com/nanlong/my-agent

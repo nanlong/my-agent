@@ -75,7 +75,7 @@ impl SearchParameters {
 pub struct SearchResponse {
     pub answer: Option<String>,
     pub query: Option<String>,
-    pub response_time: f64,
+    pub response_time: Option<f64>,
     pub images: Vec<String>,
     pub results: Vec<SearchItem>,
 }

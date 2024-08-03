@@ -6,9 +6,8 @@ use async_openai::{
         ChatCompletionRequestAssistantMessage, ChatCompletionRequestAssistantMessageArgs,
         ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
         ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessage,
-        ChatCompletionRequestUserMessageArgs, ChatCompletionResponseFormat,
-        ChatCompletionResponseFormatType, CreateChatCompletionRequest,
-        CreateChatCompletionRequestArgs, CreateChatCompletionResponse,
+        ChatCompletionRequestUserMessageArgs, ChatCompletionToolChoiceOption,
+        CreateChatCompletionRequest, CreateChatCompletionRequestArgs, CreateChatCompletionResponse,
     },
     Client,
 };
@@ -47,8 +46,6 @@ impl Planning {
         let mut context = Context::new();
         context.insert("language", language);
         context.insert("question", question);
-        context.insert("commands", &Tools::commands()?);
-        context.insert("resources", &Tools::resources()?);
         context.insert("response_format", &response_format);
 
         let system_prompt = self.engine.render("system.prompt", &context)?;
@@ -60,7 +57,7 @@ impl Planning {
         Ok(system_message)
     }
 
-    pub fn build_command_result(&self, result: &str) -> Result<ChatCompletionRequestUserMessage> {
+    pub fn _build_command_result(&self, result: &str) -> Result<ChatCompletionRequestUserMessage> {
         let user_message = ChatCompletionRequestUserMessageArgs::default()
             .content(result)
             .build()?;
@@ -68,7 +65,10 @@ impl Planning {
         Ok(user_message)
     }
 
-    pub fn build_fixjson_message(&self, content: &str) -> Result<ChatCompletionRequestUserMessage> {
+    pub fn _build_fixjson_message(
+        &self,
+        content: &str,
+    ) -> Result<ChatCompletionRequestUserMessage> {
         let mut context = Context::new();
         context.insert("response", content);
 
@@ -123,9 +123,12 @@ impl Planning {
             .model(model)
             .temperature(temperature)
             .messages(messages)
-            .response_format(ChatCompletionResponseFormat {
-                r#type: ChatCompletionResponseFormatType::JsonObject,
-            })
+            .tools(Tools::list())
+            // 这里应设置为Required，强制大模型每次都调用工具，但是某些大模型不支持此选项
+            .tool_choice(ChatCompletionToolChoiceOption::Auto)
+            // .response_format(ChatCompletionResponseFormat {
+            //     r#type: ChatCompletionResponseFormatType::JsonObject,
+            // })
             .build()?;
 
         Ok(request)

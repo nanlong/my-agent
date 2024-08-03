@@ -1,11 +1,18 @@
-use super::{response::Response, ReActAgentConfig};
+use super::ReActAgentConfig;
 use crate::{
     memory::ShortMemory,
     planning::Planning,
     tools::{ToolExector, Tools},
 };
 use anyhow::Result;
-use async_openai::{config::OpenAIConfig, types::ChatCompletionRequestMessage, Client};
+use async_openai::{
+    config::OpenAIConfig,
+    types::{
+        ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestMessage,
+        ChatCompletionRequestToolMessageArgs,
+    },
+    Client,
+};
 use async_stream::stream;
 use futures::Stream;
 use std::pin::Pin;
@@ -41,71 +48,69 @@ impl ReActAgent {
         let stream = stream! {
             // 并不将第一条用户信息发送给大模型，只是用来反馈给客户端
             // 用户提出的问题已经存入系统消息，作为Agent的任务目标
-            yield Ok(user_message.into());
+            yield Ok(user_message.clone().into());
 
             'outer: for _step in 1..=self.config.max_steps {
+                println!("history: {:#?}", short_memory.messages());
+
                 // 请求大模型
                 let response =
                     match planning.execute(&self.client, &self.config.model, self.config.temperature, short_memory.messages()).await {
                         Ok(response) => response,
-                        Err(_) => {
-                            println!("请求大模型遇到网络错误，马上进行重试操作...");
+                        Err(e) => {
+                            println!("请求大模型遇到网络错误，马上进行重试操作... {:?}", e);
                             continue;
                         },
                     };
 
-                for choice in response.choices {
-                    if let Some(assistant_prompt) = choice.message.content {
-                        // println!("Assistant debug: {:?}", assistant_prompt);
-                        // 反序列化大模型返回的内容
-                        let response  = match serde_json::from_str::<Response>(&assistant_prompt) {
-                            Ok(response) => response,
-                            Err(_) => {
-                                // 不是合法的json格式，让大模型修复
-                                println!("返回信息不符合JSON格式，进行修复。");
-                                // 如果不能正常解析，修复json格式
-                                let user_message = planning.build_fixjson_message(&assistant_prompt)?;
-                                short_memory.append(user_message.into());
-                                continue;
-                            },
-                        };
+                println!("response: {:#?}", response);
 
+                let response_message = response.choices.first().unwrap().message.clone();
+
+                if let Some(tool_calls) = response_message.tool_calls {
+                    // 构建调用工具的助手消息，放入短期记忆
+                    let assistant_message = ChatCompletionRequestAssistantMessageArgs::default()
+                        .tool_calls(tool_calls.clone())
+                        .build()?;
+
+                    short_memory.append(assistant_message.into());
+
+                    // tool_calls 工具调用
+                    for tool_call in tool_calls {
+                        match Tools::try_from(tool_call.function.clone()) {
+                            Ok(tool) => {
+                                let result = tool.execute().await?;
+
+                                // 将调用结果构建成工具消息，放入短期记忆
+                                let tool_message = ChatCompletionRequestToolMessageArgs::default()
+                                    .tool_call_id(tool_call.id)
+                                    .content(result)
+                                    .build()?;
+
+                                short_memory.append(tool_message.clone().into());
+
+                                yield Ok(tool_message.into());
+
+                                // 如果工具是结束工具，则结束对话
+                                if let Tools::Finish(_) = tool {
+                                    break 'outer;
+                                }
+                            },
+                            Err(e) => println!("工具序列化失败: \n{:?} \n{:?}", tool_call.function, e),
+                        };
+                    }
+                }
+
+                if let Some(assistant_prompt) = response_message.content {
+                    if assistant_prompt.is_empty() {
+                        // 如果助手提示为空，继续使用用户信息
+                        short_memory.append(user_message.clone().into());
+                        yield Ok(user_message.clone().into());
+                    } else {
                         // 构建助手提示，放入短期记忆，在下次对话中使用
                         let assistant_message = planning.build_assistant_message(&assistant_prompt)?;
-                        short_memory.append(assistant_message.into());
-
-                        // 用户可以看到的
-                        let assistant_message = planning.build_assistant_message(&response.thoughts.speak)?;
+                        short_memory.append(assistant_message.clone().into());
                         yield Ok(assistant_message.into());
-
-                        // 反序列化工具
-                        let tool = Tools::try_from(response.command)?;
-
-                        println!("执行命令: {:?}", tool);
-
-                        // 执行工具
-                        let command_result = match tool.execute().await {
-                            Ok(result) => result,
-                            Err(e) => {
-                                // 工具执行失败，将错误信息返回给大模型
-                                println!("Failed to execute tool \n{}", e);
-                                let user_message = planning.build_fixjson_message(&e.to_string())?;
-                                short_memory.append(user_message.into());
-                                continue;
-                            },
-                        };
-
-                        // 如果大模型要求结束对话，说明任务完成了，可以退出
-                        if let Tools::Finish(_) = tool {
-                            let assistant_message = planning.build_assistant_message(&command_result)?;
-                            yield Ok(assistant_message.into());
-
-                            break 'outer;
-                        }
-
-                        // 构建用户提示，将执行工具返回的结果存入，并放入短期记忆，在下次对话中使用
-                        let user_message = planning.build_command_result(&command_result)?;
-                        short_memory.append(user_message.clone().into());
                     }
                 }
             }
